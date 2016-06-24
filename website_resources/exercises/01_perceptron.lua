@@ -1,187 +1,207 @@
 #!/home/tias/torch/install/bin/th
 
 --[[
-
-Learning From Data, Exercise 1
-Perceptron Learning Algorithm
-
-June 2016
-
-This is a simulation of the perceptron learning algorithm running
-on a set of generated datapoints.
-
+  Perceptron with Perceptron learning algorithm on
+  artificial data
 --]]
 
--- some preparations
 require('gnuplot')
 math.randomseed(os.time())
 
--- plots the given points and function in the range [-1, 1]
-function plot(xs, y, f)
-  -- help with gnuplot: github.com/torch/gnuplot
-  -- display the target function
-  f_x = torch.linspace(-1.5, 1.5, 10)
-  f_y = torch.linspace(-1.5, 1.5, 10)
-  f_y:apply(f)
+-- returns an nx3 tensor, dim1 is filled with 1s, dim2,3 with random values
+initialize_training_input = function (n)
+  xs = torch.Tensor(n, 3):apply(function () return rand_val() end)
+  xs[{{}, 1}] = 1
+  return xs
+end
 
-  -- find indices of positive and negative points
-  pos_indices = {}
-  neg_indices = {}
+-- plots the given functions
+plot = function (f, g)
+  f_x = torch.linspace(-1, 1)
+  f_y = torch.linspace(-1, 1):apply(f)
 
-  for i = 1, y:size()[1] do
-    if y[i] == 1 then
-      pos_indices[#pos_indices + 1] = i
-    else
-      neg_indices[#neg_indices + 1] = i
-    end
-  end
-
-  -- split the training data according to label
-  pos_xs = torch.Tensor(#pos_indices, 2)
-  neg_xs = torch.Tensor(#neg_indices, 2)
-
-  for i = 1, #pos_indices do
-    pos_xs[i] = xs:t()[pos_indices[i]]
-  end
-
-  for i = 1, #neg_indices do
-    neg_xs[i] = xs:t()[neg_indices[i]]
-  end
+  g_x = torch.linspace(-1, 1)
+  g_y = torch.linspace(-1, 1):apply(g)
 
   gnuplot.figure(1)
-  gnuplot.axis({-1.5, 1.5, -1.5, 1.5})
+  gnuplot.axis({-1, 1, -1, 1})
   gnuplot.xlabel('x')
   gnuplot.ylabel('y')
-  gnuplot.title('title')
+  gnuplot.title('target vs hypothesis')
 
   gnuplot.plot(
-   {'pos', pos_xs:t()[1], pos_xs:t()[2], '+'},
-   {'neg', neg_xs:t()[1], neg_xs:t()[2], '+'},
-   {'f(x)', f_x, f_y, '-'}
+    {'f(x)', f_x, f_y, '-'},
+    {'g(x)', g_x, g_y, '-'}
   )
 end
 
--- returns a random value within [-1, 1]
-function random_coordinate()
+-- prints a starting message with basic information
+report_general_information = function (num_trials, training_examples)
+  print('--------')
+  print('- Perceptron Learning Algorithm')
+  print('-')
+  print('- running with ' .. num_trials .. ' trials, each with ' ..
+    training_examples .. ' training examples...')
+end
+
+-- prints the given numbers to the command line
+report_results = function (avg_steps, avg_p_miss)
+  print('-  * average convergence after ' .. avg_steps .. ' steps')
+  print('-  * average missclassification rate is ' .. avg_p_miss)
+  print('--------')
+end
+
+-- returns a radom value from [-1, 1]
+rand_val = function ()
   return math.random() * 2 - 1
 end
 
--- returns a random point within [-1, 1]x[-1, 1]
-function random_point()
-  return {random_coordinate(), random_coordinate()}
+-- returns a lua-table with n elements in random order
+random_order = function (n)
+  result = {}
+
+  for i = 1, n do
+    result[i] = i
+  end
+
+  for i = 1, n do
+    local j = math.random(i, n)
+    result[i], result[j] = result[j], result[i]
+  end
+
+  return result
 end
 
--- returns the (random) linear target function
-function generate_target_function()
-  -- select two points that do not generate a vertical line
-  epsilon = 0.001
+-- returns a linear function defined on [-1, 1]x[-1, 1]
+generate_target_function = function ()
+  p1 = {rand_val(), rand_val()}
+  p2 = {rand_val(), rand_val()}
 
-  repeat
-    p1 = random_point()
-    p2 = random_point()
-  until math.abs(p1[1] - p2[1]) > epsilon
-
-  slope = (p2[2] - p1[2]) / (p2[1] - p1[1])
+  m = (p2[2] - p1[2]) / (p2[1] - p1[1])
 
   return function (x)
-    return slope * x - slope * p1[1] + p1[2]
+    return m * (x - p1[1]) + p1[2]
   end
 end
 
--- returns +/-1 if the value is more/less than the given target function
-function evaluate_target_function(f, point)
-  if point[2] >= f(point[1]) then
+-- returns +1 if the function returns a positive value, else -1
+evaluate_point = function (x1, x2, f)
+  if f(x1) > x2 then
     return 1
   else
     return -1
   end
 end
 
--- generates n training points and returns tensor xs and y
-function generate_training_data(f, n)
-  xs = torch.Tensor(n, 2):apply(function () return random_coordinate() end)
-  y = torch.Tensor(n)
+-- returns an nx1 tensor with the function applied to the given data
+evaluate_target_function = function (data, f)
+  local y = torch.Tensor(data:size()[1])
 
-  for i = 1, n do
-    y[i] = evaluate_target_function(f, xs[i])
+  for i, slice in ipairs(data:split(1, 1)) do
+    y[i] = evaluate_point(slice[1][2], slice[1][3], f)
   end
 
-  return xs:t(), y
+  return y
 end
 
+-- returns 1 if the product of x and w is positive, else -1
+predict = function (x, w)
+  return torch.sign(w:t() * x)[1]
+end
 
+-- returns a linear function extracted from the given weights vector
+compute_hypothesis = function(w)
+  local a = -(w[2][1] / w[3][1])
+  local b = -(w[1][1]) / w[3][1]
 
--- generate target function f
-f = generate_target_function()
+  return function (x)
+    return a * x + b
+  end
+end
 
--- pick n points at random and evaluate f on them
-n = 4
-xs, y = generate_training_data(f, n)
-
-plot(xs, y, f)
-
--- intialize weights vector
-w = torch.Tensor(2, 1):fill(0)
-
-has_converged = false
-steps = 0
-
-while (not has_converged) do
-  -- compute predictions
-  predictions = torch.sign(w:t() * xs)
-
-  -- collect indices of misclassified points
-  misclassified = {}
+-- returns the probability that f and g disagree on a point, uses n examples
+validate = function(f, g, n)
+  local total_miss = 0
 
   for i = 1, n do
-    if predictions[1][i] ~= y[i] then
-      misclassified[#misclassified + 1] = i
+    local x = {rand_val(), rand_val()}
+
+    if evaluate_point(x[1], x[2], f) ~= evaluate_point(x[1], x[2], g) then
+      total_miss = total_miss + 1
     end
   end
 
-  if #misclassified == 0 then
-    has_converged = true
-  else
-    -- pick a misclassified point at random
-    rand_idx = misclassified[math.random(1, #misclassified)]
-    rand_x = xs:t()[rand_idx]
-    rand_y = y[rand_idx]
+  return total_miss / n
+end
 
-    -- apply the transformation to update w
-    w = w + rand_y * rand_x
+-- returns a linear function that explains the point-classes
+learn_approximation = function (xs, y, f)
+  local w = torch.Tensor(3, 1):fill(0)
+  local n = xs:size()[1]
+  local success = false
+  local steps = 0
 
-    steps = steps + 1
+  while not success do
+    success = true
+
+    -- pick a random misclassified point
+    for _, i in pairs(random_order(n)) do
+      if predict(xs[i], w) ~= y[i] then
+        success = false
+        steps = steps + 1
+        w = w + y[i] * xs[i]
+        break
+      end
+    end
   end
+
+  local g = compute_hypothesis(w)
+  local validation_set_size = 1000
+  local p_miss = validate(f, g, validation_set_size)
+
+  return g, p_miss, steps
 end
 
--- determine the final hypothesis
-g = function (x)
-  return w[2][1] * x + w[1][1]
+-- returns #steps to comp. g and P(g is wrong), for random target fn
+-- n: integer, number of generated training examples
+run_perceptron = function (n)
+  local xs = initialize_training_input(n)
+  local f = generate_target_function()
+  local y = evaluate_target_function(xs, f)
+
+  g, p_miss, steps = learn_approximation(xs, y, f)
+
+  return f, g, p_miss, steps
 end
 
-print(steps)
---plot(g)
+-- returns average number of missclass. and steps after simulation
+run_simulation = function (num_trials, num_training_examples)
+  local total_steps = 0
+  local total_p_miss = 0
+
+  for i = 1, num_trials do
+    f, g, p_miss, steps = run_perceptron(num_training_examples)
+    total_steps = total_steps + steps
+    total_p_miss = total_p_miss + p_miss
+  end
+
+  -- plot(f, g)
+
+  local avg_steps = total_steps / num_trials
+  local avg_p_miss = total_p_miss / num_trials
+
+  return avg_steps, avg_p_miss
+end
 
 
 
+---------------- MAIN CONTROL ------------------
 
+training_examples = 100
+num_trials = 1000
 
-
-
-
-
-
---plot(f)
-
--- 3. display the situation...
-
--- 4. learn g from the training data
-
--- 5. display final situation...
-
--- 6. make this a simulation
-
-
+report_general_information(num_trials, training_examples)
+report_results(run_simulation(num_trials, training_examples))
 
 
 
