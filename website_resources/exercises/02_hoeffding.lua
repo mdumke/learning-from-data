@@ -7,11 +7,6 @@
 
 math.randomseed(os.time())
 
--- configure simulation
-num_coins = 1000
-num_tosses = 10
-num_trials = 10000
-
 -- runs the ith trial
 single_trial = function (num_coins, num_tosses, current_trial)
   -- initialize mxn matrix, randomly with 0s and 1s to simulate m coin tosses
@@ -27,7 +22,7 @@ single_trial = function (num_coins, num_tosses, current_trial)
 end
 
 -- runs the simulation
-run_simulation = function (num_coins, num_tosses, num_trials)
+run_simulation = function ()
   for i = 1, num_trials do
     single_trial(num_coins, num_tosses, i)
   end
@@ -35,20 +30,26 @@ end
 
 -- prints some statistics about the simulation
 report_results = function ()
-  print(' ')
-  print('computing probability distributions for throwing ' .. num_coins ..
+  print('\ncomputing probability distributions for throwing ' .. num_coins ..
     ' coins, each ' .. num_tosses .. ' times.')
-  print(' ')
-  print('first coin:          E[# Heads] = ' .. torch.mean(c_1))
+  print('\nfirst coin:          E[# Heads] = ' .. torch.mean(c_1))
   print('random coin:         E[# Heads] = ' .. torch.mean(c_rand))
-  print('minimun #Heads coin: E[# Heads] = ' .. torch.mean(c_min))
+  print('minimun #Heads coin: E[# Heads] = ' .. torch.mean(c_min) .. '\n')
 end
+
+
+-------------- MAIN CONTROL --------------
+
+-- configure simulation
+num_coins = 1000
+num_tosses = 10
+num_trials = 10000
 
 -- initialize results-containers
 c_1 = torch.Tensor(num_trials)
 c_rand = torch.Tensor(num_trials)
 c_min = torch.Tensor(num_trials)
 
-run_simulation(num_coins, num_tosses, num_trials)
+run_simulation()
 report_results()
 
