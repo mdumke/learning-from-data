@@ -197,7 +197,12 @@ end
 
 ---------------- MAIN CONTROL ------------------
 
-training_examples = 100
+if arg[1] then
+  training_examples = tonumber(arg[1])
+else
+  training_examples = 1000
+end
+
 num_trials = 1000
 
 report_general_information(num_trials, training_examples)
