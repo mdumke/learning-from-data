@@ -5,10 +5,16 @@
 
   Using a self-generated set of linearly separable data and
   performing linear regression through matrix inversion
+
+  usage: linear_regression.lua [num_examples] [--plot]
+
+  When --plot is specified, there will be only 1 trial for which the
+  corresponding scatterplot will be printed.
 --]]
 
 require('gnuplot')
 math.randomseed(os.time())
+show_plot = false
 
 -- returns the first command line argument or 100
 get_num_examples = function ()
@@ -16,6 +22,16 @@ get_num_examples = function ()
     return tonumber(arg[1])
   else
     return 100
+  end
+end
+
+-- returs the number of times to run the simulation
+get_num_trials = function ()
+  if arg[2] and arg[2] == '--plot' then
+    show_plot = true
+    return 1
+  else
+    return 1000
   end
 end
 
@@ -35,31 +51,43 @@ report_results = function (e_in, e_out, num_trials, num_examples)
 end
 
 -- plots the given functions
-plot = function (f, g)
-  f_x = torch.linspace(-1, 1)
-  f_y = torch.linspace(-1, 1):apply(f)
+plot = function (f, g, x, y)
+  f_x = torch.linspace(-1.5, 1.5)
+  f_y = torch.linspace(-1.5, 1.5):apply(f)
 
-  g_x = torch.linspace(-1, 1)
-  g_y = torch.linspace(-1, 1):apply(g)
+  g_x = torch.linspace(-1.5, 1.5)
+  g_y = torch.linspace(-1.5, 1.5):apply(g)
+
+  above_x = x:index(1, y:eq(1):nonzero():t()[1]):t()[2]
+  above_y = x:index(1, y:eq(1):nonzero():t()[1]):t()[3]
+
+  below_x = x:index(1, y:eq(-1):nonzero():t()[1]):t()[2]
+  below_y = x:index(1, y:eq(-1):nonzero():t()[1]):t()[3]
 
   gnuplot.figure(1)
-  gnuplot.axis({-1, 1, -1, 1})
+  gnuplot.axis({-1.5, 1.5, -1.5, 1.5})
   gnuplot.xlabel('x')
   gnuplot.ylabel('y')
   gnuplot.title('target vs hypothesis')
 
   gnuplot.plot(
     {'f(x)', f_x, f_y, '-'},
-    {'g(x)', g_x, g_y, '-'}
+    {'g(x)', g_x, g_y, '-'},
+    {'1', above_x, above_y, '+'},
+    {'-1', below_x, below_y, '+'}
   )
 end
 
 -- returns a linear function that classifies points to +/- 1
 generate_target_function = function ()
-  p1 = {rand_val(), rand_val()}
-  p2 = {rand_val(), rand_val()}
+  -- make sure the function is not too steep
+  repeat
+    p1 = {rand_val(), rand_val()}
+    p2 = {rand_val(), rand_val()}
 
-  m = (p2[2] - p1[2]) / (p2[1] - p1[1])
+    m = (p2[2] - p1[2]) / (p2[1] - p1[1])
+  until math.abs(m) < 5
+
 
   return function (x)
     return m * (x - p1[1]) + p1[2]
@@ -101,7 +129,7 @@ end
 -- returns a linear function extracted from the given weights vector
 compute_hypothesis = function(w)
   local a = -(w[2] / w[3])
-  local b = -(w[1]) / w[3]
+  local b = -(w[1] / w[3])
 
   return function (x)
     return a * x + b
@@ -110,11 +138,11 @@ end
 
 -- returns an estimate for the out-of-sample performance of g compared to f
 compute_e_out = function (f, g)
-  local data = get_data_points(1000)
-  local y_f = evaluate_function(f, data)
-  local y_g = evaluate_function(g, data)
+  data = get_data_points(1000)
+  y_f = evaluate_function(f, data)
+  y_g = evaluate_function(g, data)
 
-  return torch.sum(torch.abs(y_f - y_g)) / 2 / 1000
+  return y_f:ne(y_g):sum() / 1000
 end
 
 -- returns the hypothesis and in-sample-error for one trial
@@ -128,10 +156,12 @@ run_once = function (num_examples)
 
   -- evaluate hypothesis
   y_g = evaluate_function(g, x)
-  in_sample_error = torch.sum(torch.abs(y - y_g)) / 2 / num_examples
+  in_sample_error = y:ne(y_g):sum() / num_examples
   out_of_sample_error = compute_e_out(f, g)
 
-  -- plot(f, g)
+  if show_plot then
+    plot(f, g, x, y)
+  end
 
   return in_sample_error, out_of_sample_error
 end
@@ -146,7 +176,7 @@ run_simulation = function (num_trials, num_examples)
     in_sample_errs[i], out_of_sample_errs[i] = run_once(num_examples)
   end
 
-  return torch.mean(in_sample_errs), torch.mean(out_of_sample_errs)
+  return in_sample_errs, out_of_sample_errs
 end
 
 
@@ -154,10 +184,8 @@ end
 
 -- configure simulation
 num_examples = get_num_examples()
-num_trials = 1000
+num_trials = get_num_trials()
 
 e_in, e_out = run_simulation(num_trials, num_examples)
-report_results(e_in, e_out, num_trials, num_examples)
-
-
+report_results(torch.mean(e_in), torch.mean(e_out), num_trials, num_examples)
 
