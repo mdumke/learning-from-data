@@ -1,15 +1,13 @@
 #!/home/tias/torch/install/bin/th
 
 --[[
-  Linear Regression for Classification
+  Linear Regression with PLA for Classification
 
-  Using a self-generated set of linearly separable data and
-  performing linear regression through matrix inversion
+  Using linear regression to get a head start before applying the
+  Perceptron Learning Algorithm
 
-  usage: linear_regression.lua [num_examples] [--plot]
-
-  When --plot is specified, there will be only 1 trial for which the
-  corresponding scatterplot will be printed.
+  usage: 02_regression_with_pla [num_examples] [--plot]
+  When run with --plot, there will be only one trial
 --]]
 
 require('gnuplot')
@@ -21,7 +19,7 @@ get_num_examples = function ()
   if arg[1] then
     return tonumber(arg[1])
   else
-    return 100
+    return 10
   end
 end
 
@@ -41,13 +39,11 @@ rand_val = function ()
 end
 
 -- prints the results to stdout
-report_results = function (e_in, e_out, num_trials, num_examples)
-  print('\n-- Linear Regression for Classification --')
-  print('\nTraining linear regression on a set of ' .. num_examples ..
-    ' data points.')
-  print('Simulation ran ' .. num_trials .. ' times.\n')
-  print('  average in-sample-error: ' .. e_in)
-  print('  average out-of-sample-error: ' .. e_out .. '\n')
+report_results = function (num_trials, num_examples, num_steps)
+  print('\n-- Linear Regression with PLA for Classification --')
+  print('Simulation ran ' .. num_trials .. ' times with ' .. num_examples ..
+    ' examples.\n')
+  print('  average convergence of PLA: ' .. num_steps .. ' steps.\n')
 end
 
 -- plots the given functions
@@ -128,8 +124,8 @@ end
 
 -- returns a linear function extracted from the given weights vector
 compute_hypothesis = function(w)
-  local a = -(w[2] / w[3])
-  local b = -(w[1] / w[3])
+  local a = -(w[2][1] / w[3][1])
+  local b = -(w[1][1]) / w[3][1]
 
   return function (x)
     return a * x + b
@@ -145,14 +141,44 @@ compute_e_out = function (f, g)
   return y_f:ne(y_g):sum() / 1000
 end
 
+-- returns the learned hypothesis and the number of steps pla needed
+run_pla = function (x, y, w_linreg)
+  w = w_linreg:resizeAs(torch.Tensor(1, 3))
+  steps = 0
+  success = false
+
+  while not success do
+    success = true
+
+    -- evaluate the current hypothesis
+    y_h = torch.sign(w * x:t())
+    miss_idx = y_h[1]:ne(y):nonzero()
+    num_miss = torch.numel(miss_idx)
+
+    if num_miss > 0 then
+      -- pick a missclassified point at random
+      rand_idx = miss_idx[math.random(num_miss)][1]
+
+      -- apply weights-update using this point
+      w = w + y[rand_idx] * x[rand_idx]
+
+      success = false
+      steps = steps + 1
+    end
+  end
+
+  g = compute_hypothesis(w:t())
+  return g, steps
+end
+
 -- returns the hypothesis and in-sample-error for one trial
 run_once = function (num_examples)
   x, y, f = generate_training_data(num_examples)
 
   -- compute linear regression
   pseudo_inverse = torch.inverse(x:t() * x) * x:t()
-  w = pseudo_inverse * y
-  g = compute_hypothesis(w)
+  w_linreg = pseudo_inverse * y
+  g, num_pla_steps = run_pla(x, y, w_linreg)
 
   -- evaluate hypothesis
   y_g = evaluate_function(g, x)
@@ -164,20 +190,19 @@ run_once = function (num_examples)
     plot(f, g, x, y)
   end
 
-  return in_sample_error, out_of_sample_error
+  return num_pla_steps
 end
 
 
--- returns the mean in-sample and out-of-sample errors
+-- returns the mean number of steps the pla needed to converge
 run_simulation = function (num_trials, num_examples)
-  in_sample_errs = torch.Tensor(num_trials)
-  out_of_sample_errs = torch.Tensor(num_trials)
+  pla_steps = torch.Tensor(num_trials)
 
   for i = 1, num_trials do
-    in_sample_errs[i], out_of_sample_errs[i] = run_once(num_examples)
+    pla_steps[i] = run_once(num_examples)
   end
 
-  return in_sample_errs, out_of_sample_errs
+  return torch.mean(pla_steps)
 end
 
 
@@ -187,7 +212,7 @@ end
 num_examples = get_num_examples()
 num_trials = get_num_trials()
 
-e_in, e_out = run_simulation(num_trials, num_examples)
-report_results(torch.mean(e_in), torch.mean(e_out), num_trials, num_examples)
+pla_steps = run_simulation(num_trials, num_examples)
+report_results(num_trials, num_examples, pla_steps)
 
 
