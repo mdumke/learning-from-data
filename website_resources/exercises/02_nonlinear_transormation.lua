@@ -89,7 +89,7 @@ out_of_sample_error = function (w, f)
 end
 
 -- prints the results of the simulation
-report_results = function (e_in, weights, e_out, num_trials, num_examples)
+report_results = function (e_in, weights, e_in_tf, e_out, num_trials, num_examples)
   print('\n--- Linear Regression with non-linear transformation ---\n')
   print('  Running ' .. num_trials .. ' trials, each with ' ..
     num_examples .. ' examples.\n')
@@ -98,13 +98,15 @@ report_results = function (e_in, weights, e_out, num_trials, num_examples)
   for i = 1, weights:size(2) do
     print('      ' ..  weights[1][i])
   end
-  print(  '  * avg. out-of-sample error after transformation: ' .. e_out .. '.\n')
+  print(  '  * avg. in-sample-error after transformation: ' .. e_in_tf .. '.')
+  print(  '  * avg. out-of-sample-error after transformation: ' .. e_out .. '.\n')
 end
 
 -- main loop for running the simulation
 run_simulation = function (num_examples, num_trials)
   e_ins = torch.Tensor(num_trials)
   w_tfs = torch.Tensor(num_trials, 6)
+  e_in_tfs = torch.Tensor(num_trials)
   e_outs = torch.Tensor(num_trials)
 
   for i = 1, num_trials do
@@ -118,10 +120,11 @@ run_simulation = function (num_examples, num_trials)
     x_tf = compute_non_linear_features(x)
     w_tf = linear_regression(x_tf, y)
     w_tfs[i] = w_tf
+    e_in_tfs[i] = in_sample_error(x_tf, y, w_tf)
     e_outs[i] = out_of_sample_error(w_tf, f)
   end
 
-  return torch.mean(e_ins), torch.mean(w_tfs, 1), torch.mean(e_outs)
+  return torch.mean(e_ins), torch.mean(w_tfs, 1), torch.mean(e_in_tfs), torch.mean(e_outs)
 end
 
 
@@ -131,8 +134,10 @@ end
 num_examples = 1000
 num_trials = 1000
 
-e_in, w, e_out = run_simulation(num_examples, num_trials)
-report_results(e_in, w, e_out, num_trials, num_examples)
+print('running simulation, please wait...')
+
+e_in, w, e_in_tf, e_out = run_simulation(num_examples, num_trials)
+report_results(e_in, w, e_in_tf, e_out, num_trials, num_examples)
 
 
 
