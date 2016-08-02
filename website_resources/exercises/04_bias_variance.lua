@@ -56,7 +56,11 @@ end
 -- returns the weight from a single trial
 single_hypothesis = function ()
   local x, y = get_training_data(2)
-  local pseudo_inverse = x:t() * torch.inverse(x * x:t())
+
+  -- from x derive input data for the hypothesis computation
+  x_train = torch.ones(1, 2)
+
+  local pseudo_inverse = x_train:t() * torch.inverse(x_train * x_train:t())
   return y * pseudo_inverse
 end
 
