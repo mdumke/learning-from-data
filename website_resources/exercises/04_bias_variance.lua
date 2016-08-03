@@ -19,7 +19,7 @@ plot_estimate = function (g_bar)
   sin_y = torch.linspace(-1, 1):apply(get_target_function())
 
   hyp_x = torch.linspace(-1, 1)
-  hyp_y = torch.linspace(-1, 1):apply(compute_hypothesis(g_bar))
+  hyp_y = torch.linspace(-1, 1):apply(g_bar)
 
   gnuplot.figure(1)
   gnuplot.axis({-1.2, 1.2, -1.2, 1.2})
@@ -49,37 +49,44 @@ end
 -- returns the hypothesis as a function of x
 compute_hypothesis = function (w)
   return function (x)
-    return w * x
+    return w[1][2] * x + w[1][1]
   end
 end
 
 -- returns the weight from a single trial
-single_hypothesis = function ()
-  local x, y = get_training_data(2)
+run_once = function ()
+  x, y = get_training_data(2)
 
-  -- from x derive input data for the hypothesis computation
-  x_train = torch.ones(1, 2)
+  -- adapt x to be suitable for the hypothesis computation
+  x_train = torch.ones(2, 2)
+  x_train:t()[2] = x
 
-  local pseudo_inverse = x_train:t() * torch.inverse(x_train * x_train:t())
-  return y * pseudo_inverse
+--   local pseudo_inverse = x_train:t() * torch.inverse(x_train * x_train:t())
+--   return y * pseudo_inverse
+  pseudo_inverse = torch.inverse(x_train:t() * x_train) * x_train:t()
+  return pseudo_inverse * y:t()
 end
 
 -- computes the average hypothesis
 run_simulation = function (num_trials)
-  local hypotheses = torch.Tensor(num_trials)
+  weights = torch.Tensor(num_trials, 2)
 
   for i = 1, num_trials do
-    hypotheses[i] = single_hypothesis()
+    weights[i] = run_once()
   end
 
-  return round(torch.mean(hypotheses))
+  w_avg = torch.Tensor(1, 2)
+  w_avg[1][1] = round(torch.mean(weights[{{}, 1}]))
+  w_avg[1][2] = round(torch.mean(weights[{{}, 2}]))
+
+  return compute_hypothesis(w_avg)
 end
 
 -- generates multiple random points and return the estimated bias
 compute_bias_estimate = function (g_bar)
-  test_x, test_y = get_training_data(1000)
-  predictions = test_x:clone() * g_bar
-  return torch.mean(torch.pow(predictions - test_y, 2))
+  x_test, y_test = get_training_data(1000)
+  predictions = g_bar(x_test)
+  return torch.mean(torch.pow(predictions - y_test, 2))
 end
 
 -- generates random samples to estimate the variance
@@ -88,11 +95,12 @@ compute_variance_estimate = function (g_bar)
   errors = torch.Tensor(n)
 
   for i = 1, n do
-    local g = single_hypothesis()[1][1]
-    local x = torch.rand(1, 1000) * 2 - 1
+    w = run_once()
+    g = compute_hypothesis(w:t())
+    x = torch.rand(1, 1000) * 2 - 1
 
-    local y_g = x:clone() * g
-    local y_g_bar = x:clone() * g_bar
+    y_g = x:clone():apply(g)
+    y_g_bar = x:clone():apply(g_bar)
 
     errors[i] = torch.mean(torch.pow(y_g - y_g_bar, 2))
   end
@@ -101,8 +109,8 @@ compute_variance_estimate = function (g_bar)
 end
 
 g_bar = run_simulation(1000)
+
 plot_estimate(g_bar)
-print("Best hypothesis estimate: " .. g_bar)
 print("bias estimate: " .. round(compute_bias_estimate(g_bar)))
 print("variance estimate: " .. round(compute_variance_estimate(g_bar)))
 
