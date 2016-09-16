@@ -1,0 +1,53 @@
+#!/home/tias/torch/install/bin/th
+
+--[[
+  perform gradient descent on a given error surface
+--]]
+
+ETA = 0.1
+
+-- rounds the given number to the specified decimal place
+round = function (n, precision)
+  return math.floor((n * 10^precision) + 0.5) / 10^precision
+end
+
+-- returns the value of the error function at the given point
+compute_error = function (u, v)
+  return (u * math.exp(v) - 2 * v * math.exp(-u))^2
+end
+
+-- returns the function's partial derivative along u-coordinate
+partial_u = function (u, v)
+  return 2 * (u * math.exp(v) - 2 * v * math.exp(-u)) * (math.exp(v) + 2 * v * math.exp(-u))
+end
+
+-- returns the function's partial derivative along v-coordinate
+partial_v = function (u, v)
+  return 2 * (u * math.exp(v) - 2 * v * math.exp(-u)) * (u * math.exp(v) - 2 * math.exp(-u))
+end
+
+-- returns the partial derivatives at the given point
+compute_gradient = function (u, v)
+  return partial_u(u, v), partial_v(u, v)
+end
+
+-- returns the new weights after one update step along the (negative) gradient
+update_weights = function (w1, w2)
+  du, dv = compute_gradient(w1, w2)
+  return w1 - ETA * du, w2 - ETA * dv
+end
+
+w1, w2 = 1, 1
+iteration = 0
+
+while (compute_error(w1, w2) > 10^(-14)) do
+  w1, w2 = update_weights(w1, w2)
+  iteration = iteration + 1
+end
+
+print("\n***********")
+print("gradient descent:")
+print("  iterations to reduce the error to less than 10^-14: " .. iteration)
+print("  remaining error: " .. compute_error(w1, w2))
+print("  (w1, w2) = (" .. round(w1, 3) .. ", " .. round(w2, 3) .. ")")
+
