@@ -47,9 +47,9 @@ get_training_data = function (n)
 end
 
 -- returns the hypothesis as a function of x
-compute_hypothesis = function (w)
+compute_hypothesis = function (w1, w2)
   return function (x)
-    return x^2 * w
+    return w1 + w2 * x^2
   end
 end
 
@@ -60,29 +60,27 @@ run_once = function ()
   -- note: when switching the computation, don't forget to change
   --       the way the hypothesis function get's computed
 
-  -- compute weight for h(x) = b
-  local w_b = (y[1][1] + y[1][2]) / 2
+  y_train = y
+  x_train = torch.ones(2, 2)
+  x_train:t()[2] = torch.pow(x, 2)
 
-  -- compute weight for h(x) = ax
-  local w_ax = (y[1][1] * x[1][1] + y[1][2] * x[1][2]) /
-               (x[1][1]^2 + x[1][2]^2)
-
-  -- compute weight for h(x) = ax^2
-  local w_ax2 = (y[1][1] * x[1][1]^2 + y[1][2] * x[1][2]^2) /
-                (x[1][1]^4 + x[1][2]^4)
-
-  return w_ax2
+  pseudo_inverse = torch.inverse(x_train:t() * x_train) * x_train:t()
+  w = pseudo_inverse * y:t()
+  return w[1][1], w[2][1]
 end
 
 -- computes the average hypothesis
 run_simulation = function (num_trials)
-  weights = torch.Tensor(num_trials)
+  weights = torch.Tensor(num_trials, 2)
 
   for i = 1, num_trials do
-    weights[i] = run_once()
+    weights[i][1], weights[i][2] = run_once()
   end
 
-  return compute_hypothesis(round(torch.mean(weights)))
+  w1 = round(torch.mean(weights:t()[1]))
+  w2 = round(torch.mean(weights:t()[2]))
+
+  return compute_hypothesis(w1, w2)
 end
 
 -- generates multiple random points and return the estimated bias
@@ -94,13 +92,13 @@ end
 
 -- generates random samples to estimate the variance
 compute_variance_estimate = function (g_bar)
-  local n = 10000
+  local n = 1000
   errors = torch.Tensor(n)
 
   for i = 1, n do
     w = run_once()
     g = compute_hypothesis(w)
-    x = torch.rand(1, 10000) * 2 - 1
+    x = torch.rand(1, 1000) * 2 - 1
 
     y_g = x:clone():apply(g)
     y_g_bar = x:clone():apply(g_bar)
@@ -111,9 +109,9 @@ compute_variance_estimate = function (g_bar)
   return torch.mean(errors)
 end
 
-g_bar = run_simulation(100000)
+g_bar = run_simulation(1)
 
 plot_estimate(g_bar)
 print("bias estimate: " .. round(compute_bias_estimate(g_bar)))
-print("variance estimate: " .. round(compute_variance_estimate(g_bar)))
+-- print("variance estimate: " .. round(compute_variance_estimate(g_bar)))
 
