@@ -1,3 +1,8 @@
+-- rounds the given number to the specified decimal place
+round = function (n, precision)
+  return math.floor((n * 10^precision) + 0.5) / 10^precision
+end
+
 -- returns the number of lines in the file
 num_lines = function (filename)
   local handle = io.popen("wc -l < " .. filename)
