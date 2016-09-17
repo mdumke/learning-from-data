@@ -3,15 +3,28 @@
 --[[
   Regularization with Weight Decay
 
-  Start by performing a simple linear regression on the data provided
-  using a non-linear transformation
+  Performs a linear regression on the data provided
+  using a non-linear transformation and weight decay with
+  lambda = 10^k (k provided via command line)
+
+  usage: ./06_regularization.lua [optional int to influence weight decay]
 --]]
 
 require('helpers')
 
--- returns the pseudo-inverse of a given matrix
-pseudo_inverse = function (matrix)
-  return torch.inverse(matrix:t() * matrix) * matrix:t()
+-- returns the amount or regularization as determined by cmd-line args, or 0
+get_regularization_amount = function ()
+  if arg[1] then
+    return 10^tonumber(arg[1])
+  else
+    return 0
+  end
+end
+
+-- returns the pseudo-inverse of a given matrix, using weight-decay
+pseudo_inverse = function (matrix, lambda)
+  local regularizer = lambda * torch.eye(matrix:size()[2])
+  return torch.inverse(matrix:t() * matrix + regularizer) * matrix:t()
 end
 
 -- returns the given x-data after the required transformation
@@ -34,9 +47,9 @@ non_linear_transform = function (x)
 end
 
 -- trains a model using a non-linear transformation
-train_model = function (x, y)
+train_model = function (x, y, lambda)
   z = non_linear_transform(x)
-  return pseudo_inverse(z) * y
+  return pseudo_inverse(z, lambda) * y
 end
 
 -- returns the error of the given model w on the data
@@ -48,15 +61,18 @@ end
 
 ------------ MAIN CONTROL ------------------
 
+lambda = get_regularization_amount()
+
 x, y = read_data_from_file('in.dta')
-w = train_model(x, y)
+w = train_model(x, y, lambda)
 
 e_in = compute_error(w, x, y)
 
 x_test, y_test = read_data_from_file('out.dta')
 e_out = compute_error(w, x_test, y_test)
 
-print('\nlinear regression with non-linear-transformation')
+print('\nlinear regression with weight decay (lambda = ' .. round(lambda, 3) .. '):')
 print('  e_in: ' .. round(e_in, 3))
 print('  e_out: ' .. round(e_out, 3) .. '\n')
+
 
