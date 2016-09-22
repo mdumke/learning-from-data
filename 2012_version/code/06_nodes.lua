@@ -1,22 +1,23 @@
 #!/home/tias/torch/install/bin/th
 
 --[[
-  Helper for finding the maximum number of weights for different
+  Helper for finding the maximum and minimum number of weights for different
   distributions of hidden units in a fully connected neural network
 
   network structure:
 
-  10 inputs -> 36 hidden units -> 1 output
+  10 inputs -> 36 hidden units in any number of layers -> 1 output
 --]]
 
-weights_for_two_layers = function ()
-  max_weights = 0
+find_max_weights = function (num_inputs, num_hidden_units)
+  if num_hidden_units == 0 then
+    return num_inputs
+  end
 
-  for i = 2, 34 do
-    l1 = i
-    l2 = 36 - i
+  local max_weights = 0
 
-    weights = 10 * (l1 - 1) + l1 * (l2 - 1) + l2
+  for size_next_layer = 2, num_hidden_units do
+    local weights = num_inputs * (size_next_layer - 1) + find_max_weights(size_next_layer, num_hidden_units - size_next_layer)
 
     if weights > max_weights then
       max_weights = weights
@@ -26,58 +27,28 @@ weights_for_two_layers = function ()
   return max_weights
 end
 
+print('max # weights for 10 inputs and 36 hidden units: ' ..
+  find_max_weights(10, 36) .. '.')
 
-weights_for_three_layers = function ()
-  max_weights = 0
 
-  for i = 2, 32 do
-    l1 = i
-    remaining = 36 - i
-
-    for j = 2, remaining do
-      l2 = j
-      l3 = remaining - j
-
-      weights = 10 * (l1 - 1) + l1 * (l2 - 1) + l2 * (l3 - 1) + l3
-
-      if weights > max_weights then
-        max_weights = weights
-      end
-    end
-
-    return max_weights
+find_min_weights = function (num_inputs, num_hidden_units)
+  if num_hidden_units == 0 then
+    return num_inputs
   end
+
+  local min_weights = 2^32
+
+  for size_next_layer = 2, num_hidden_units do
+    local weights = num_inputs * (size_next_layer - 1) + find_min_weights(size_next_layer, num_hidden_units - size_next_layer)
+
+    if weights < min_weights then
+      min_weights = weights
+    end
+  end
+
+  return min_weights
 end
 
-weights_for_four_layers = function ()
-  max_weights = 0
-
-  for i = 2, 30 do
-    l1 = i
-
-    for j = 2, (36 - i) do
-      l2 = j
-
-      remaining = 36 - i - j
-      for k = 2, remaining do
-        l3 = k
-        l4 = remaining - k
-
-        weights = 10 * (l1 - 1) + l1 * (l2 - 1) + l2 * (l3 - 1) + l3 * (l4 - 1) + l4
-
-        if weights > max_weights then
-          max_weights = weights
-        end
-      end
-
-    end
-
-    return max_weights
-  end
-end
-
-print(weights_for_two_layers())
-print(weights_for_three_layers())
-print(weights_for_four_layers())
-
+print('min # weights for 10 inputs and 36 hidden units: ' ..
+  find_min_weights(10, 36) .. '.')
 
