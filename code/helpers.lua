@@ -3,6 +3,11 @@ round = function (n, precision)
   return math.floor((n * 10^precision) + 0.5) / 10^precision
 end
 
+-- returns the sign of the number, but not 0
+sign = function (n)
+  if n > 0 then return 1 else return -1 end
+end
+
 -- returns the number of lines in the file
 num_lines = function (filename)
   local handle = io.popen("wc -l < " .. filename)
