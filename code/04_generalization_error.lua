@@ -5,6 +5,7 @@
 --]]
 
 require('gnuplot')
+math.randomseed(os.time())
 
 
 ------ PROBLEM 1 ------

@@ -43,7 +43,7 @@ end
 -- configure simulation
 num_coins = 1000
 num_tosses = 10
-num_trials = 10000
+num_trials = 100000
 
 -- initialize results-containers
 c_1 = torch.Tensor(num_trials)

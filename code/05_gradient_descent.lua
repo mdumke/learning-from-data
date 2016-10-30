@@ -4,12 +4,9 @@
   perform gradient descent on a given error surface
 --]]
 
-ETA = 0.1
+require('helpers')
 
--- rounds the given number to the specified decimal place
-round = function (n, precision)
-  return math.floor((n * 10^precision) + 0.5) / 10^precision
-end
+ETA = 0.1
 
 -- returns the value of the error function at the given point
 compute_error = function (u, v)
@@ -40,14 +37,12 @@ end
 w1, w2 = 1, 1
 iteration = 0
 
-while (compute_error(w1, w2) > 10^(-14)) do
+repeat
   w1, w2 = update_weights(w1, w2)
   iteration = iteration + 1
-end
+until (compute_error(w1, w2) < 10e-14)
 
-print("\n***********")
-print("gradient descent:")
-print("  iterations to reduce the error to less than 10^-14: " .. iteration)
-print("  remaining error: " .. compute_error(w1, w2))
-print("  (w1, w2) = (" .. round(w1, 3) .. ", " .. round(w2, 3) .. ")")
+print("\niterations: " .. iteration)
+print("remaining error: " .. compute_error(w1, w2))
+print("(w1, w2) = (" .. round(w1, 3) .. ", " .. round(w2, 3) .. ")")
 
