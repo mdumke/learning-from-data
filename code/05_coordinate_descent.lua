@@ -34,9 +34,6 @@ for i = 1, 15 do
   w2 = w2 - ETA * partial_v(w1, w2)
 end
 
-print("\n*************")
-print("coordinate descent, 15 iterations")
-print("  final error: " .. compute_error(w1, w2))
-
-
+print("\ncoordinate descent, 15 iterations")
+print("final error: " .. compute_error(w1, w2))
 

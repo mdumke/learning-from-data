@@ -45,3 +45,18 @@ read_data_from_file = function (filename)
   return x, y
 end
 
+-- randomizes the rows of the given 2-dim tensors
+random_permutation = function (x, y)
+  local num_rows = x:size()[1]
+  local idx = torch.randperm(num_rows)
+
+  local new_x = torch.Tensor(num_rows, 3)
+  local new_y = torch.Tensor(num_rows, 1)
+
+  for i = 1, num_rows do
+    new_x[i] = x[idx[i]]
+    new_y[i] = y[idx[i]]
+  end
+
+  return new_x, new_y
+end
