@@ -17,7 +17,7 @@ nonlinear_transform = function (x, k)
   x_transform[3] = x:t()[2]
   x_transform[4] = torch.pow(x:t()[1], 2)
   x_transform[5] = torch.pow(x:t()[2], 2)
-  x_transform[6] = x:t()[1] * x:t()[2]
+  x_transform[6] = torch.cmul(x:t()[1], x:t()[2])
   x_transform[7] = torch.abs(x:t()[1] - x:t()[2])
   x_transform[8] = torch.abs(x:t()[1] + x:t()[2])
 
@@ -30,21 +30,29 @@ linear_regression = function (x, y)
   return pseudo_inverse * y
 end
 
--- returns the model's estimated squared-error on the given test/validation-set
+-- returns the model's estimated classification-error on the given data-set
 compute_error = function (w, x_test, y_test)
   local predictions = torch.sign(x_test * w)
   return y_test:ne(predictions):sum() / x_test:size()[1]
 end
-
 
 -- read in data and split into training and validation set
 x, y = read_data_from_file('in.dta')
 
 x_train = x:sub(1, 25)
 y_train = y:sub(1, 25)
-
 x_validation = x:sub(26, 35)
 y_validation = y:sub(26, 35)
+
+-- toggle between assignments
+switch_training_and_validation_set = true
+
+if switch_training_and_validation_set then
+  x_train = x:sub(26, 35)
+  y_train = y:sub(26, 35)
+  x_validation = x:sub(1, 25)
+  y_validation = y:sub(1, 25)
+end
 
 x_test, y_test = read_data_from_file('out.dta')
 
